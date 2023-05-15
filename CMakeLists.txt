@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8)
 project(password-circuit)
 
 set(CURVE "BN128" CACHE STRING "curves:ALT_BN128, BN128, EDWARDS, MNT4, MNT6")
-set(DEPENDS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/depends")
+set(DEPENDS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/depend")
 set(OPT_FLAGS "" CACHE STRING "Override C++ compiler optimization flags")
 
 option(MULTICORE "Enable parallelized execution, using OpenMP" OFF)
@@ -50,7 +50,7 @@ endif()
 
 include_directories(.)
 
-add_subdirectory(depends)
+add_subdirectory(depend)
 add_subdirectory(src)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
