@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/depends/libsnark" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/depends/libsnark/depends/ate-pairing" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/depends/libsnark/depends/googletest" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/depends/libsnark/depends/libff" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/depends/libsnark/depends/libfqfft" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/depends/libsnark/depends/libsnark-supercop" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/depends/libsnark/depends/xbyak" vcs="Git" />
+  </component>
+</project>
