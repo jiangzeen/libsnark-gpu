@@ -439,6 +439,17 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
     libff::Fr_vector<ppT> const_padded_assignment(1, libff::Fr<ppT>::one());
     const_padded_assignment.insert(const_padded_assignment.end(), qap_wit.coefficients_for_ABCs.begin(), qap_wit.coefficients_for_ABCs.end());
 
+    // (custom) TODO: replace multi_exp_with_mixed_addition
+    typename std::vector<libff::Fr<ppT>>::const_iterator _Astart = const_padded_assignment.begin(), _Aend = const_padded_assignment.begin() + qap_wit.num_variables() + 1;
+    typename std::vector<libff::G1<ppT>>::const_iterator _Pstart = pk.A_query.begin(), _Pend = pk.A_query.begin() + qap_wit.num_variables() + 1;
+    for (auto it = _Pstart; it == _Pend; it++) {
+        std::string literalx = _Pstart->coord[0].toString();
+        std::string literaly = _Pstart->coord[0].toString();
+        std::string literalz = _Pstart->coord[0].toString();
+        if (it == _Pstart) {
+            printf("check default x, y, z, values:\n", literalx.c_str(), literaly.c_str(), literalz.c_str());
+        }
+    }
     libff::G1<ppT> evaluation_At = libff::multi_exp_with_mixed_addition<libff::G1<ppT>,
                                                                         libff::Fr<ppT>,
                                                                         libff::multi_exp_method_BDLO12>(

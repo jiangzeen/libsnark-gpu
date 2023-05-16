@@ -116,5 +116,8 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-
+# clion files
+.idea
+cmake-build-debug-linux/
+cmake-build-debug-visual-studio/
 # End of https://www.gitignore.io/api/c,c++,cmake,macOS
