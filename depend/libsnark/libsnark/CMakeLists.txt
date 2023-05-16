@@ -344,8 +344,14 @@ add_executable(
   EXCLUDE_FROM_ALL
 
   common/routing_algorithms/tests/test_routing_algorithms.cpp
-        zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/test.cu)
+        zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/test.cu
+        zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/gpuec256.cu
+        zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/uint288.cu
+        zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/constants.cu)
 set_source_files_properties(zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/test.cu PROPERTIES LANGUAGE CUDA)
+set_source_files_properties(zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/gpuec256.cu PROPERTIES LANGUAGE CUDA)
+set_source_files_properties(zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/uint288.cu PROPERTIES LANGUAGE CUDA)
+set_source_files_properties(zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/constants.cu PROPERTIES LANGUAGE CUDA)
 set_target_properties(common_routing_algorithms_test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(common_routing_algorithms_test PROPERTIES LANGUAGE CUDA)
 target_link_libraries(

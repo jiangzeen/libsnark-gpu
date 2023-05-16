@@ -23,7 +23,7 @@ See r1cs_gg_ppzksnark.hpp .
 #include <libff/algebra/scalar_multiplication/multiexp.hpp>
 #include <libff/common/profiling.hpp>
 #include <libff/common/utils.hpp>
-#include "test.cu"
+#include "test.h"
 #ifdef MULTICORE
 #include <omp.h>
 #endif
@@ -442,14 +442,23 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
     // (custom) TODO: replace multi_exp_with_mixed_addition
     typename std::vector<libff::Fr<ppT>>::const_iterator _Astart = const_padded_assignment.begin(), _Aend = const_padded_assignment.begin() + qap_wit.num_variables() + 1;
     typename std::vector<libff::G1<ppT>>::const_iterator _Pstart = pk.A_query.begin(), _Pend = pk.A_query.begin() + qap_wit.num_variables() + 1;
-    for (auto it = _Pstart; it == _Pend; it++) {
-        std::string literalx = _Pstart->coord[0].toString();
-        std::string literaly = _Pstart->coord[0].toString();
-        std::string literalz = _Pstart->coord[0].toString();
-        if (it == _Pstart) {
+    //vector<unsigned long long> _ArawScalar, _ArawPoint;
+    unsigned long long *_ArawScalar = new unsigned long long [4 * qap_wit.num_variables()], *_ArawPoint = new unsigned long long [4 * 3 * qap_wit.num_variables()];
+    unsigned long long *_AResult = new unsigned long long[12];
+    auto l = qap_wit.num_variables();
+    for (int i = 0; i < l; i++) {
+        std::string literalx = (_Pstart + i)->coord[0].toString(16);
+        std::string literaly = (_Pstart + i)->coord[1].toString(16);
+        std::string literalz = (_Pstart + i)->coord[2].toString(16);
+        std::copy(_Astart[i].mont_repr.data, _Astart[i].mont_repr.data + 4, _ArawScalar + 4*i);
+        convertStringToUint64(literalx, _ArawPoint + 12*i);
+        convertStringToUint64(literaly, _ArawPoint + 12*l + 4);
+        convertStringToUint64(literalz, _ArawPoint + 12*l + 8);
+        if (i == 0) {
             printf("check default x, y, z, values:\n", literalx.c_str(), literaly.c_str(), literalz.c_str());
         }
     }
+    _computesOnGPU(_ArawScalar, _ArawPoint, _AResult, l);
     libff::G1<ppT> evaluation_At = libff::multi_exp_with_mixed_addition<libff::G1<ppT>,
                                                                         libff::Fr<ppT>,
                                                                         libff::multi_exp_method_BDLO12>(
