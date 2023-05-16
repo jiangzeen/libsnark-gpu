@@ -6,6 +6,11 @@
 //线程块大小（只用一维）
 #define BLOCK_SIZE 500
 
+long long _get_nsec_time()
+{
+    auto timepoint = std::chrono::high_resolution_clock::now();
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(timepoint.time_since_epoch()).count();
+}
 /**************************************************
 * GPU上的向量加法,每一个线程块(bx, by)内线程(tx, ty)都将执行，所有变量各有一份
 ***************************************************/
@@ -242,7 +247,7 @@ void convertUint64ToUint288(UINT64* i64, uint288* i288) {
 void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_points_output, int csize) {
     int N_BLOCK = ((csize+N_THREAD_PER_BLOCK-1)/N_THREAD_PER_BLOCK);
 
-    int64_t s1,e1;
+    long long s1,e1;
     long long time_use=1;
     int nB,nT;
 
@@ -314,8 +319,8 @@ void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_p
 
     //=== TEST =====
     printf("ready\n");
-    s1 = GetSysTimeMicros();
-    check_dbc<<<1,128>>>(d_scalar, dbc_store_device, dbc_len_device);
+    s1 = _get_nsec_time();
+    //check_dbc<<<1,128>>>(d_scalar, dbc_store_device, dbc_len_device);
     cudaDeviceSynchronize();
     CUDA_CHECK_ERROR();
 
@@ -324,40 +329,41 @@ void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_p
     //print_jpoint_arr(h_p1,1);
     CUDA_SAFE_CALL(cudaMemcpy(dbc_store_host, dbc_store_device, 6 * DBC_MAXLENGTH * csize * sizeof(int), cudaMemcpyDeviceToHost));
     CUDA_SAFE_CALL(cudaMemcpy(dbc_len_host, dbc_len_device,2 * csize * sizeof(int), cudaMemcpyDeviceToHost));
-    e1 = GetSysTimeMicros();
+    e1 = _get_nsec_time();
     time_use = e1 - s1;//微秒
     printf("test usage is %ld us\n",time_use);
 
     //==== WARM UP =====
-    s1 = GetSysTimeMicros();
-    point_to_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p1,d_p2);
+    s1 = _get_nsec_time();
+    point_to_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p1,  csize);
 
     // testbasemul<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p1,d_num);
     test_point_double<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p1,d_p2);
 
-    point_from_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p1,d_p2);
+    point_from_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p2, csize);
 
-    e1 = GetSysTimeMicros();
+    e1 = _get_nsec_time();
     time_use = e1 - s1;//微秒
     printf("warm up time usage is %ld us\n",time_use);
 
     //==== MAIN =====
-    s1 = GetSysTimeMicros();
+    s1 = _get_nsec_time();
 
-    point_to_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p1,d_p2);
+    point_to_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p1, csize);
     cudaDeviceSynchronize();
     CUDA_CHECK_ERROR();
 
 #ifdef PRECOMPUTE
     multi_scalar_multiple<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_dbc, d_p1, d_p2);
 #else
-    dbc_main<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_scalar, dbc_store_device, dbc_len_device, d_p1, d_p2);
+    dbc_main<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_scalar, dbc_store_device, dbc_len_device, d_p1, d_p2, csize);
 #endif
 
     cudaDeviceSynchronize();
     CUDA_CHECK_ERROR();
-    if (N_BLOCK > 2 * N_THREAD_PER_BLOCK) accumulate_sum_per_block<<<1,N_THREAD_PER_BLOCK>>>(d_p2);
-    else accumulate_sum_per_block<<<1,N_BLOCK/2>>>(d_p2);
+    // accumulate.
+    //if (N_BLOCK > 2 * N_THREAD_PER_BLOCK) accumulate_sum_per_block<<<1,N_THREAD_PER_BLOCK>>>(d_p2);
+    //else accumulate_sum_per_block<<<1,N_BLOCK/2>>>(d_p2);
 
     cudaDeviceSynchronize();
     CUDA_CHECK_ERROR();
@@ -369,12 +375,12 @@ void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_p
     }
 #endif
 
-    point_from_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p2,d_p1);
+    point_from_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p2, csize);
     cudaDeviceSynchronize();
 
     CUDA_CHECK_ERROR();
 
-    time_use = GetSysTimeMicros() - s1;//微秒
+    time_use = _get_nsec_time() - s1;//微秒
     printf("main function time usage is %ld us\n",time_use);
 
     // used in accuracy test.
