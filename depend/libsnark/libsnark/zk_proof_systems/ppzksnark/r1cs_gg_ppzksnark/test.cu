@@ -216,12 +216,13 @@ __global__ void dbc_main(uint288* nums, int* dbc_store, int* dbc_value, Jpoint *
 
 void convertStringToUint64(string s, UINT64* in) {
     // must hold for 4 UINT64s
+    s = s.substr(2);
     unsigned int idx = 0;
     unsigned int mov = 0;
     unsigned int len = 0;
     UINT64 mask = 0;
     for (auto c: s) {
-        UINT64 bit = c > '9'? c - 'A' + 10: c - '0';
+        UINT64 bit = c > '9'? c - 'a' + 10: c - '0';
         if (bit < 0 || bit > 16) { printf("ERROR: convert is not hex number!\n"); }
         if (len > 0 && len % 64 == 0) {
             idx++;

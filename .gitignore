@@ -119,5 +119,7 @@ Temporary Items
 # clion files
 .idea
 cmake-build-debug-linux/
+cmake-build-debug/
 cmake-build-debug-visual-studio/
+.idea/
 # End of https://www.gitignore.io/api/c,c++,cmake,macOS

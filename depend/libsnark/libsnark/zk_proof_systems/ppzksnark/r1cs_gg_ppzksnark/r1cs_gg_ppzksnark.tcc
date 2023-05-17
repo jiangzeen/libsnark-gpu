@@ -397,7 +397,6 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
 #ifdef DEBUG
     assert(pk.constraint_system.is_satisfied(primary_input, auxiliary_input));
 #endif
-    test();
     libff::enter_block("Compute the polynomial H");
     const qap_witness<libff::Fr<ppT> > qap_wit = r1cs_to_qap_witness_map(pk.constraint_system, primary_input, auxiliary_input, libff::Fr<ppT>::zero(), libff::Fr<ppT>::zero(), libff::Fr<ppT>::zero());
 
