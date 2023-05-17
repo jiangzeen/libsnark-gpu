@@ -178,32 +178,34 @@ __global__ void dbc_main(uint288* nums, int* dbc_store, int* dbc_value, Jpoint *
     int dbc_id = nthread * bx + tx;
 
     int n = 0;
-    if (bx < size - 1) n = get_DBC(nums + dbc_id, dbc_store + dbc_id * 6 * DBC_MAXLENGTH, dbc_value + dbc_id * 2);
-    int len = *(dbc_value + dbc_id * 2 + n);
-    int* dbc = dbc_store + dbc_id * 6 * DBC_MAXLENGTH + n * 3 * DBC_MAXLENGTH;
-#ifndef RELEASE
-    __syncthreads();
-    if(bx == 30 && tx == 0) {
-        printf("check:bx=%d thread %d has input: %llx, %llx, %llx, %llx\n", bx, tx, nums->data[0], nums->data[1], nums->data[2], nums->data[3]);
-    }
-    if(nums->data[0] != 0 || len < 1 || len > 110) {
-        printf("panic:bx=%d thread %d has illegal input: %llx, %llx, %llx, %llx\n", bx, tx, nums->data[0], nums->data[1], nums->data[2], nums->data[3]);
-    }
-    if (bx == 0 && tx == 3) {
-        printf("check point: %llx %llx %llx %llx\n", in[tx].x[0], in[tx].x[1], in[tx].x[2], in[tx].x[3]);
-        printf("check dbc value in block %d, len = %d: \n", bx, len);
-        for (int j = 0; j < len; j++) {
-            int* wtf = dbc + j * 3;
-            printf("(%d)*(2**%d)*(3**%d) + ", wtf[0], wtf[1], wtf[2]);
+    if (dbc_id < 100)  {
+        n = get_DBC(nums + dbc_id, dbc_store + dbc_id * 6 * DBC_MAXLENGTH, dbc_value + dbc_id * 2);
+        int len = *(dbc_value + dbc_id * 2 + n);
+        int* dbc = dbc_store + dbc_id * 6 * DBC_MAXLENGTH + n * 3 * DBC_MAXLENGTH;
+    #ifndef RELEASE
+        __syncthreads();
+        if(bx == 30 && tx == 0) {
+            printf("check:bx=%d thread %d has input: %x, %x, %x, %x\n", bx, tx, nums->data[0], nums->data[1], nums->data[2], nums->data[3]);
         }
-        printf("\n");
-    }
-    __syncthreads();
-#endif
-    int cnt = 0;
-    if (bx < size - 1) cnt = run_DBC_v2(in + dbc_id, out + dbc_id, dbc, len);
-    if ((out + dbc_id)->x[0] == 0) {
-        printf("bx=%d, tx=%d reports bug:x is 0!!\n", bx, tx);
+        if(nums->data[0] != 0 || len < 1 || len > 110) {
+            printf("panic:bx=%d thread %d has illegal input: %x, %x, %x, %x\n", bx, tx, nums->data[0], nums->data[1], nums->data[2], nums->data[3]);
+        }
+        if (bx == 0 && tx == 3) {
+            printf("check point: %llx %llx %llx %llx\n", in[tx].x[0], in[tx].x[1], in[tx].x[2], in[tx].x[3]);
+            printf("check dbc value in block %d, len = %d: \n", bx, len);
+            for (int j = 0; j < len; j++) {
+                int* wtf = dbc + j * 3;
+                printf("(%d)*(2**%d)*(3**%d) + ", wtf[0], wtf[1], wtf[2]);
+            }
+            printf("\n");
+        }
+        __syncthreads();
+    #endif
+        int cnt = 0;
+        if (bx < size - 1) cnt = run_DBC_v2(in + dbc_id, out + dbc_id, dbc, len);
+        if ((out + dbc_id)->x[0] == 0) {
+            printf("bx=%d, tx=%d reports bug:x is 0!!\n", bx, tx);
+        }
     }
     // if (tx == 0) {
     //     printf("bx=%d runs %d ops, check point value\n", bx, cnt);
@@ -280,7 +282,7 @@ void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_p
     dbc_len_host = (int*)malloc(2 * csize * sizeof(int)); // dbc_len[2];
     int dbc_size = 6 * DBC_MAXLENGTH;
     for (int i = 0; i < csize; i++) {
-        printf("raw scalar_check: %llx \n", scalars_i64[4 * i + 3]);
+        if (i < 100) printf("raw scalar_check #%d: %llx %llx %llx %llx \n", i, scalars_i64[4*i], scalars_i64[4*i+1], scalars_i64[4*i+2], scalars_i64[4*i+3]);
         convertUint64ToUint288(scalars_i64 + 4*i, scalar + i);
     }
     //make_uint288(scalar, dx2, csize); // init int288
@@ -362,7 +364,7 @@ void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_p
     multi_scalar_multiple<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_dbc, d_p1, d_p2);
 #else
     for (int i = 0; i < 16; i++) {
-        printf("d_scalar %d check: %x %x %x %x", scalar[i].data[0], scalar[i].data[1], scalar[i].data[2], scalar[i].data[3])
+        printf("d_scalar %d check: %x %x %x %x\n", i, scalar[i].data[0], scalar[i].data[1], scalar[i].data[2], scalar[i].data[3]);
     }
     dbc_main<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_scalar, dbc_store_device, dbc_len_device, d_p1, d_p2, csize);
 #endif

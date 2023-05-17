@@ -23,6 +23,7 @@ See r1cs_gg_ppzksnark.hpp .
 #include <libff/algebra/scalar_multiplication/multiexp.hpp>
 #include <libff/common/profiling.hpp>
 #include <libff/common/utils.hpp>
+#include<libff/algebra/fields/bigint.hpp>
 #include "test.h"
 #ifdef MULTICORE
 #include <omp.h>
@@ -450,6 +451,9 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
         std::string literaly = (_Pstart + i)->coord[1].toString(16);
         std::string literalz = (_Pstart + i)->coord[2].toString(16);
         std::copy(_Astart[i].mont_repr.data, _Astart[i].mont_repr.data + 4, _ArawScalar + 4*i);
+        libff::bigint<libff::bn128_Fr::num_limbs> a = _Astart[i].as_bigint();
+        // a.print_hex();
+        // if(a.data[0] > 1) printf("check outer data#%d: %x %x %x %x \n", i, a.data[0], a.data[1], a.data[2], a.data[3]);
         convertStringToUint64(literalx, _ArawPoint + 12*i);
         convertStringToUint64(literaly, _ArawPoint + 12*l + 4);
         convertStringToUint64(literalz, _ArawPoint + 12*l + 8);
@@ -457,7 +461,7 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
             printf("check default x, y, z, values:\n", literalx.c_str(), literaly.c_str(), literalz.c_str());
         }
     }
-    _computesOnGPU(_ArawScalar, _ArawPoint, _AResult, l);
+    // _computesOnGPU(_ArawScalar, _ArawPoint, _AResult, l);
     libff::G1<ppT> evaluation_At = libff::multi_exp_with_mixed_addition<libff::G1<ppT>,
                                                                         libff::Fr<ppT>,
                                                                         libff::multi_exp_method_BDLO12>(
@@ -479,7 +483,32 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
         const_padded_assignment.begin(),
         const_padded_assignment.begin() + qap_wit.num_variables() + 1,
         chunks);
+    
     libff::leave_block("Compute evaluation to B-query", false);
+    
+    auto l_h = qap_wit.degree();
+    typename std::vector<libff::Fr<ppT>>::const_iterator _Hstart = qap_wit.coefficients_for_H.begin(), _Hend = qap_wit.coefficients_for_H.begin() + l + 1;
+    typename std::vector<libff::G1<ppT>>::const_iterator _PHstart = pk.H_query.begin(), _PHend = pk.H_query.begin() + l + 1;
+    //vector<unsigned long long> _ArawScalar, _ArawPoint;
+    unsigned long long *_HrawScalar = new unsigned long long [4 * l], *_HrawPoint = new unsigned long long [4 * 3 * l];
+    unsigned long long *_HResult = new unsigned long long[12];
+    printf("check H size: %d\n", l_h);
+    for (int i = 0; i < l; i++) {
+        std::string literalx = (_PHstart + i)->coord[0].toString(16);
+        std::string literaly = (_PHstart + i)->coord[1].toString(16);
+        std::string literalz = (_PHstart + i)->coord[2].toString(16);
+        std::copy(_Hstart[i].mont_repr.data, _Hstart[i].mont_repr.data + 4, _HrawScalar + 4*i);
+        libff::bigint<libff::bn128_Fr::num_limbs> a = _Hstart[i].as_bigint();
+        if (i < 100) a.print_hex();
+        // if(a.data[0] > 1) printf("check outer data#%d: %x %x %x %x \n", i, a.data[0], a.data[1], a.data[2], a.data[3]);
+        convertStringToUint64(literalx, _HrawPoint + 12*i);
+        convertStringToUint64(literaly, _HrawPoint + 12*l + 4);
+        convertStringToUint64(literalz, _HrawPoint + 12*l + 8);
+        if (i == 0) {
+            printf("check default x, y, z, values:\n", literalx.c_str(), literaly.c_str(), literalz.c_str());
+        }
+    }
+    // _computesOnGPU(_ArawScalar, _ArawPoint, _AResult, l);
 
     libff::enter_block("Compute evaluation to H-query", false);
     libff::G1<ppT> evaluation_Ht = libff::multi_exp<libff::G1<ppT>,
