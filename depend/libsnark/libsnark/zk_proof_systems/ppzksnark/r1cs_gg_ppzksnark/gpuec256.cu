@@ -1,6 +1,7 @@
 #include "gpuec256.h"
 
 #include "device_arr.h"
+#include "constants.cu"
 // typedef unsigned long long UINT64; //????64��??????
 // typedef long long INT64;
 // typedef unsigned int UINT32;

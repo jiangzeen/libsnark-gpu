@@ -1,5 +1,5 @@
 set(SNARK_EXTRALIBS)
-
+set(CMAKE_CUDA_FLAGS_DEBUG "-rdc=true")
 if(${CURVE} STREQUAL "BN128")
   set(
     SNARK_EXTRALIBS
@@ -19,7 +19,6 @@ endif()
 add_library(
   snark
   STATIC
-
   common/data_structures/integer_permutation.cpp
   common/data_structures/set_commitment.cpp
   common/default_types/r1cs_ppzkpcd_pp.cpp
@@ -42,6 +41,18 @@ add_library(
   relations/ram_computations/rams/fooram/fooram_aux.cpp
   relations/ram_computations/rams/tinyram/tinyram_aux.cpp
 )
+
+add_library(
+  gpuec
+  STATIC
+  zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/uint288.cu
+  zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/gpuec256.cu
+  zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/test.cu
+)
+
+set_target_properties(gpuec PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(gpuec PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+
 if("${USE_LINKED_LIBRARIES}")
   target_link_libraries(
     snark
@@ -53,6 +64,7 @@ if("${USE_LINKED_LIBRARIES}")
     ${PROCPS_LIBRARIES}
     ${LIBFF_LIBRARIES}
     ${SNARK_EXTRALIBS}
+    ${CUDA_LIBRARIES}
   )
 else()
   target_link_libraries(
@@ -344,10 +356,9 @@ add_executable(
   EXCLUDE_FROM_ALL
 
   common/routing_algorithms/tests/test_routing_algorithms.cpp
-        zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/test.cu
+  zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/uint288.cu
         zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/gpuec256.cu
-        zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/uint288.cu
-        zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/constants.cu)
+        zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/test.cu)
 set_source_files_properties(zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/test.cu PROPERTIES LANGUAGE CUDA)
 set_source_files_properties(zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/gpuec256.cu PROPERTIES LANGUAGE CUDA)
 set_source_files_properties(zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/uint288.cu PROPERTIES LANGUAGE CUDA)
