@@ -176,6 +176,7 @@ __global__ void dbc_main(uint288* nums, int* dbc_store, int* dbc_value, Jpoint *
     int bx = blockIdx.x;
     int nthread = blockDim.x;
     int dbc_id = nthread * bx + tx;
+
     int n = 0;
     if (bx < size - 1) n = get_DBC(nums + dbc_id, dbc_store + dbc_id * 6 * DBC_MAXLENGTH, dbc_value + dbc_id * 2);
     int len = *(dbc_value + dbc_id * 2 + n);
@@ -216,6 +217,7 @@ __global__ void dbc_main(uint288* nums, int* dbc_store, int* dbc_value, Jpoint *
 
 void convertStringToUint64(string s, UINT64* in) {
     // must hold for 4 UINT64s
+    in[0] = in[1] = in[2] = in[3] = 0;
     s = s.substr(2);
     unsigned int idx = 0;
     unsigned int mov = 0;
@@ -238,6 +240,7 @@ void convertStringToUint64(string s, UINT64* in) {
 
 // converts uint64 to uint288, which doesn't affect i64 value.
 void convertUint64ToUint288(UINT64* i64, uint288* i288) {
+    i288->data[0] = 0;
     for (int i = 3, j = 1; i >= 0; i--) { // most significant bit: i288[1](0 is for overfloating)
         i288->data[j + 1] = i64[i] & (0xffffffffull);
         i288->data[j] = (i64[i] >>= 32u);
@@ -277,6 +280,7 @@ void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_p
     dbc_len_host = (int*)malloc(2 * csize * sizeof(int)); // dbc_len[2];
     int dbc_size = 6 * DBC_MAXLENGTH;
     for (int i = 0; i < csize; i++) {
+        printf("raw scalar_check: %llx \n", scalars_i64[4 * i + 3]);
         convertUint64ToUint288(scalars_i64 + 4*i, scalar + i);
     }
     //make_uint288(scalar, dx2, csize); // init int288
@@ -350,13 +354,16 @@ void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_p
     //==== MAIN =====
     s1 = _get_nsec_time();
 
-    point_to_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p1, csize);
+    point_from_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p1, csize);
     cudaDeviceSynchronize();
     CUDA_CHECK_ERROR();
 
 #ifdef PRECOMPUTE
     multi_scalar_multiple<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_dbc, d_p1, d_p2);
 #else
+    for (int i = 0; i < 16; i++) {
+        printf("d_scalar %d check: %x %x %x %x", scalar[i].data[0], scalar[i].data[1], scalar[i].data[2], scalar[i].data[3])
+    }
     dbc_main<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_scalar, dbc_store_device, dbc_len_device, d_p1, d_p2, csize);
 #endif
 
