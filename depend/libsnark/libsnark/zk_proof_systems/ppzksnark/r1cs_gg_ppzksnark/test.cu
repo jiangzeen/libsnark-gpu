@@ -240,6 +240,17 @@ void convertStringToUint64(string s, UINT64* in) {
     if (idx >= 4) printf("ERROR: number size too long\n");
 }
 
+void convertUint64ToString(UINT64* in, string& s) {
+    static const char* digits = "0123456789ABCDEF";
+    s = "";
+    //std::string rc(hex_len,'0');
+    for (int bit = 252; bit >= 0; bit -= 4) {
+        int idx = bit / 64;
+        int mask = bit % 64;
+        s += digits[in[idx] & (0x0f << mask)];
+    }
+}
+
 // converts uint64 to uint288, which doesn't affect i64 value.
 void convertUint64ToUint288(UINT64* i64, uint288* i288) {
     i288->data[0] = 0;

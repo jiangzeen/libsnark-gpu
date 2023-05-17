@@ -32,7 +32,7 @@ const int N_THREAD_PER_BLOCK = CONST_THREAD_PER_BLOCK;
 //const int N_BLOCK = ((BATCHSIZE+N_THREAD_PER_BLOCK-1)/N_THREAD_PER_BLOCK);
 
 void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_points_output, int csize);
-
+void convertUint64ToString(UINT64* in, std::string& s);
 void convertStringToUint64(std::string s, UINT64* in);
 
 void test();

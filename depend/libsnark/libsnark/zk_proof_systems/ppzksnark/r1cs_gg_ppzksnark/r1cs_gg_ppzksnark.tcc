@@ -440,6 +440,7 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
     const_padded_assignment.insert(const_padded_assignment.end(), qap_wit.coefficients_for_ABCs.begin(), qap_wit.coefficients_for_ABCs.end());
 
     // (custom) TODO: replace multi_exp_with_mixed_addition
+    /*
     typename std::vector<libff::Fr<ppT>>::const_iterator _Astart = const_padded_assignment.begin(), _Aend = const_padded_assignment.begin() + qap_wit.num_variables() + 1;
     typename std::vector<libff::G1<ppT>>::const_iterator _Pstart = pk.A_query.begin(), _Pend = pk.A_query.begin() + qap_wit.num_variables() + 1;
     //vector<unsigned long long> _ArawScalar, _ArawPoint;
@@ -462,6 +463,7 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
         }
     }
     // _computesOnGPU(_ArawScalar, _ArawPoint, _AResult, l);
+    */
     libff::G1<ppT> evaluation_At = libff::multi_exp_with_mixed_addition<libff::G1<ppT>,
                                                                         libff::Fr<ppT>,
                                                                         libff::multi_exp_method_BDLO12>(
@@ -486,29 +488,40 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
     
     libff::leave_block("Compute evaluation to B-query", false);
     
-    auto l_h = qap_wit.degree();
+    auto l = qap_wit.degree();
     typename std::vector<libff::Fr<ppT>>::const_iterator _Hstart = qap_wit.coefficients_for_H.begin(), _Hend = qap_wit.coefficients_for_H.begin() + l + 1;
-    typename std::vector<libff::G1<ppT>>::const_iterator _PHstart = pk.H_query.begin(), _PHend = pk.H_query.begin() + l + 1;
+    typename std::vector<libff::G1<ppT>>::const_iterator _Pstart = pk.H_query.begin(), _Pend = pk.H_query.begin() + l + 1;
     //vector<unsigned long long> _ArawScalar, _ArawPoint;
     unsigned long long *_HrawScalar = new unsigned long long [4 * l], *_HrawPoint = new unsigned long long [4 * 3 * l];
     unsigned long long *_HResult = new unsigned long long[12];
-    printf("check H size: %d\n", l_h);
+    printf("check H size: %d\n", l);
     for (int i = 0; i < l; i++) {
-        std::string literalx = (_PHstart + i)->coord[0].toString(16);
-        std::string literaly = (_PHstart + i)->coord[1].toString(16);
-        std::string literalz = (_PHstart + i)->coord[2].toString(16);
-        std::copy(_Hstart[i].mont_repr.data, _Hstart[i].mont_repr.data + 4, _HrawScalar + 4*i);
+        std::string literalx = (_Pstart + i)->coord[0].toString(16);
+        std::string literaly = (_Pstart + i)->coord[1].toString(16);
+        std::string literalz = (_Pstart + i)->coord[2].toString(16);
         libff::bigint<libff::bn128_Fr::num_limbs> a = _Hstart[i].as_bigint();
-        if (i < 100) a.print_hex();
+        //if (i < 100) a.print_hex();
+        std::copy(a.data, a.data + 4, _HrawScalar + 4*i)
         // if(a.data[0] > 1) printf("check outer data#%d: %x %x %x %x \n", i, a.data[0], a.data[1], a.data[2], a.data[3]);
         convertStringToUint64(literalx, _HrawPoint + 12*i);
-        convertStringToUint64(literaly, _HrawPoint + 12*l + 4);
-        convertStringToUint64(literalz, _HrawPoint + 12*l + 8);
-        if (i == 0) {
-            printf("check default x, y, z, values:\n", literalx.c_str(), literaly.c_str(), literalz.c_str());
+        convertStringToUint64(literaly, _HrawPoint + 12*i + 4);
+        convertStringToUint64(literalz, _HrawPoint + 12*i + 8);
+        if (i < 10) {
+            printf("check default x, y, z #%d, values: %s %s %s\n", i, literalx.c_str(), literaly.c_str(), literalz.c_str());
         }
     }
-    // _computesOnGPU(_ArawScalar, _ArawPoint, _AResult, l);
+    // CUDA main entry
+    _computesOnGPU(_HrawScalar, _HrawPoint, _HResult, l);
+
+    // convert gpu raw data back to G1<ppt>
+    libff::G1<ppT> evaluation_Ht_cuda;
+    std::string literalx, literaly, literalz;
+    convertUint64ToString(_HResult, literalx);
+    convertUint64ToString(_HResult + 4, literaly);
+    convertUint64ToString(_HResult + 8, literalz);
+    evaluation_Ht_cuda.coord[0].set(literalx, 16);
+    evaluation_Ht_cuda.coord[1].set(literaly, 16);
+    evaluation_Ht_cuda.coord[2].set(literalz, 16);
 
     libff::enter_block("Compute evaluation to H-query", false);
     libff::G1<ppT> evaluation_Ht = libff::multi_exp<libff::G1<ppT>,

@@ -122,4 +122,5 @@ cmake-build-debug-linux/
 cmake-build-debug/
 cmake-build-debug-visual-studio/
 .idea/
+.vscode/
 # End of https://www.gitignore.io/api/c,c++,cmake,macOS
