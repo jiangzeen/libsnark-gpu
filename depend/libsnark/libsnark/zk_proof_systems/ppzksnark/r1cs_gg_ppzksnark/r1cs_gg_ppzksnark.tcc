@@ -512,13 +512,14 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
     }
     // CUDA main entry
     _computesOnGPU(_HrawScalar, _HrawPoint, _HResult, l);
-
+    printf("check H result: %llx %llx %llx\n", _HResult[0], _HResult[4], _HResult[8]);
     // convert gpu raw data back to G1<ppt>
     libff::G1<ppT> evaluation_Ht_cuda;
     std::string literalx, literaly, literalz;
     convertUint64ToString(_HResult, literalx);
     convertUint64ToString(_HResult + 4, literaly);
     convertUint64ToString(_HResult + 8, literalz);
+    printf("check literalx, literaly, literalz: %s %s %s\n", literalx.c_str(), literaly.c_str(), literalz.c_str());
     evaluation_Ht_cuda.coord[0].set("0x"+literalx);
     evaluation_Ht_cuda.coord[1].set("0x"+literaly);
     evaluation_Ht_cuda.coord[2].set("0x"+literalz);

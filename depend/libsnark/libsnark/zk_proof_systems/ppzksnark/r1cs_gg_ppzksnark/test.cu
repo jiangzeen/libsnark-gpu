@@ -247,7 +247,8 @@ void convertUint64ToString(UINT64* in, string& s) {
     for (int bit = 252; bit >= 0; bit -= 4) {
         int idx = bit / 64;
         int mask = bit % 64;
-        s += digits[in[idx] & (0x0f << mask)];
+        s += digits[in[idx] & 0x0f];
+        in[idx] /= 16;
     }
 }
 
@@ -260,7 +261,7 @@ void convertUint64ToUint288(UINT64* i64, uint288* i288) {
         j = j+2;
     }
 }
-
+#define DEBUG
 void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_points_output, int csize) {
     int N_BLOCK = ((csize+N_THREAD_PER_BLOCK-1)/N_THREAD_PER_BLOCK);
 
