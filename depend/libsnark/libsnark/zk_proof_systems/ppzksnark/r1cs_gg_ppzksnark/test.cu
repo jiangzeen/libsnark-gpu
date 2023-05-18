@@ -176,7 +176,7 @@ __global__ void dbc_main(uint288* nums, int* dbc_store, int* dbc_value, Jpoint *
     int bx = blockIdx.x;
     int nthread = blockDim.x;
     int dbc_id = nthread * bx + tx;
-
+    if (nums[dbc_id].data[9] == 1) return;
     int n = 0;
     if (dbc_id < 100)  {
         n = get_DBC(nums + dbc_id, dbc_store + dbc_id * 6 * DBC_MAXLENGTH, dbc_value + dbc_id * 2);
@@ -217,6 +217,79 @@ __global__ void dbc_main(uint288* nums, int* dbc_store, int* dbc_value, Jpoint *
     //printf("(%d %d) ", bx, tx);
 }
 
+__global__ void accumulate_sum_per_block(Jpoint* in) { //in = out[]
+    int bx = blockIdx.x;
+    int tx = threadIdx.x;
+    int nthread = blockDim.x;
+    in = in + bx * nthread * 2;
+    for (int i = nthread, j = 1; i; i /= 2, j++) { // 5 = log2(thread)
+#ifdef DEBUG
+        if (tx == 0) {
+            //printf("tx=%d, point=%llx\n", tx, in[tx].x[0]);
+        }
+#endif
+        if (tx < i) {
+            //printf("tx=%d, before add: point1=%llx, point2=%llx\n", tx, in[tx].x[0], in[tx + i].x[0]);
+#ifdef VERBOSE_MODE
+            dh_ellipticAdd_JJ_verbose(&in[tx], &in[tx + i], &in[tx]);
+#else
+            dh_ellipticAdd_JJ(&in[tx], &in[tx + i], &in[tx]);
+#endif
+            //printf("tx=%d, after add: point=%llx\n", tx, in[tx].x[0]);
+        }
+        __syncthreads();
+    }
+    // if (tx == 0) {
+    //     UINT64 zinv[4], zinv2[4];
+    //     dh_mybig_moninv((in+tx)->z, zinv);
+    //     dh_mybig_monmult_64(zinv, dc_R2, zinv);
+    //     dh_mybig_monmult_64(zinv, zinv, zinv2);
+    //     dh_mybig_monmult_64((in+tx)->x, zinv2, (in+tx)->x);
+    //     dh_mybig_monmult_64(zinv, zinv2, zinv);
+    //     dh_mybig_monmult_64((in+tx)->y, zinv, (in+tx)->y);
+    // }// res == in[0]
+}
+
+__global__ void accumulate_blocks(Jpoint* in, int blocksize) { //in = out[]
+    //int bx = blockIdx.x;
+    int tx = threadIdx.x; // tx is last step's block id
+    int nthread = blockDim.x;
+    in = in + tx * blocksize;
+    for (int i = nthread, j = 1; i; i /= 2, j++) { // 5 = log2(thread)
+#ifdef DEBUG
+        if (tx == 0) {
+            //printf("tx=%d, point=%llx\n", tx, in[tx].x[0]);
+        }
+#endif
+        if (tx < i) {
+            //printf("tx=%d, before add: point1=%llx, point2=%llx\n", tx, (in + tx * blocksize)->x[0], (in + (tx + i) * blocksize)->x[0]);
+#ifdef VERBOSE_MODE
+            dh_ellipticAdd_JJ_verbose(&in[tx], &in[tx + i], &in[tx]);
+#else
+            dh_ellipticAdd_JJ(in + tx * blocksize , in + (tx + i) * blocksize, in + tx * blocksize);
+#endif
+            //printf("tx=%d, after add: point=%llx\n", tx, (in + tx * blocksize)->x[0]);
+        }
+        __syncthreads();
+    }
+}
+
+__global__ void trivial_sum(Jpoint* in, int num) {
+    for (int i = 1; i < num; i++) {
+        printf("do algorithm: i=%d\n", i);
+        dh_ellipticAdd_JJ(in, in + i, in);
+        //__syncthreads__();
+    }
+}
+
+__global__ void trivial_sum_blocks(Jpoint* in, int num, int blocksize) {
+    for (int i = 1; i < num; i++) {
+        printf("do algorithm: i=%d\n", i);
+        dh_ellipticAdd_JJ(in, in + i * blocksize, in);
+        //__syncthreads__();
+    }
+}
+
 void convertStringToUint64(string s, UINT64* in) {
     // must hold for 4 UINT64s
     in[0] = in[1] = in[2] = in[3] = 0;
@@ -247,9 +320,9 @@ void convertUint64ToString(UINT64* in, string& s) {
     for (int bit = 252; bit >= 0; bit -= 4) {
         int idx = bit / 64;
         int mask = bit % 64;
-        s += digits[in[idx] & 0x0f];
-        in[idx] /= 16;
+        s += digits[(in[idx] & (0x0f << mask)) >> mask];
     }
+    printf("convert to String: %s\n", s.c_str());
 }
 
 // converts uint64 to uint288, which doesn't affect i64 value.
@@ -368,7 +441,7 @@ void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_p
     //==== MAIN =====
     s1 = _get_nsec_time();
 
-    point_from_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p1, csize);
+    point_to_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p1, csize);
     cudaDeviceSynchronize();
     CUDA_CHECK_ERROR();
 
@@ -384,23 +457,34 @@ void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_p
     cudaDeviceSynchronize();
     CUDA_CHECK_ERROR();
     // accumulate.
-    //if (N_BLOCK > 2 * N_THREAD_PER_BLOCK) accumulate_sum_per_block<<<1,N_THREAD_PER_BLOCK>>>(d_p2);
-    //else accumulate_sum_per_block<<<1,N_BLOCK/2>>>(d_p2);
-
+    if (N_BLOCK > 2 * N_THREAD_PER_BLOCK) {
+        printf("Blocks too many: Unsolved situations. Do not calculate correct answers.\n");
+        accumulate_sum_per_block<<<1,N_THREAD_PER_BLOCK>>>(d_p2);
+    } else {
+        int nontrivial_lim = (N_BLOCK - 1) / 2;
+        accumulate_sum_per_block<<<1,nontrivial_lim>>>(d_p2);
+        for (int i = nontrivial_lim * 2; i < N_BLOCK; i++) {
+            int offset = i * N_THREAD_PER_BLOCK;
+            trivial_sum<<<1, 1>>>(d_p2 + offset, min(csize - offset, N_THREAD_PERBLOCK)); // accumulate how many blocks.
+        }
+    }
+    trivial_sum_blocks<<<1, 1>>>(d_p2, N_THREAD_PER_BLOCK);
     cudaDeviceSynchronize();
     CUDA_CHECK_ERROR();
-#ifdef DEBUG
-    printf("dbc dp1:\n");
-    CUDA_SAFE_CALL(cudaMemcpy(t_p1,d_p1,100*sizeof(Jpoint),cudaMemcpyDeviceToHost));
-    for (int i = 0; i < 10; i++) {
-        printf("0x%llx 0x%llx 0x%llx 0x%llx\n", t_p1[i].x[0], t_p1[i].x[1], t_p1[i].x[2], t_p1[i].x[3]);
-    }
-#endif
+
 
     point_from_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p2, csize);
     cudaDeviceSynchronize();
 
     CUDA_CHECK_ERROR();
+
+#ifdef DEBUG
+    printf("dbc dp2:\n");
+    CUDA_SAFE_CALL(cudaMemcpy(t_p1,d_p2,100*sizeof(Jpoint),cudaMemcpyDeviceToHost));
+    for (int i = 0; i < 10; i++) {
+        printf("0x%llx 0x%llx 0x%llx 0x%llx\n", t_p1[i].x[0], t_p1[i].x[1], t_p1[i].x[2], t_p1[i].x[3]);
+    }
+#endif
 
     time_use = _get_nsec_time() - s1;//微秒
     printf("main function time usage is %ld us\n",time_use);

@@ -495,23 +495,27 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
     unsigned long long *_HrawScalar = new unsigned long long [4 * l], *_HrawPoint = new unsigned long long [4 * 3 * l];
     unsigned long long *_HResult = new unsigned long long[12];
     printf("check H size: %d\n", l);
+    int nonzerol = 0;
     for (int i = 0; i < l; i++) {
         std::string literalx = (_Pstart + i)->coord[0].toString(16);
         std::string literaly = (_Pstart + i)->coord[1].toString(16);
         std::string literalz = (_Pstart + i)->coord[2].toString(16);
         libff::bigint<libff::bn128_Fr::num_limbs> a = _Hstart[i].as_bigint();
         //if (i < 100) a.print_hex();
-        std::copy(a.data, a.data + 4, _HrawScalar + 4*i);
-        // if(a.data[0] > 1) printf("check outer data#%d: %x %x %x %x \n", i, a.data[0], a.data[1], a.data[2], a.data[3]);
-        convertStringToUint64(literalx, _HrawPoint + 12*i);
-        convertStringToUint64(literaly, _HrawPoint + 12*i + 4);
-        convertStringToUint64(literalz, _HrawPoint + 12*i + 8);
+        if (!a.iszero) { // skip all zero cnt
+            std::copy(a.data, a.data + 4, _HrawScalar + 4*nonzerol);
+            // if(a.data[0] > 1) printf("check outer data#%d: %x %x %x %x \n", i, a.data[0], a.data[1], a.data[2], a.data[3]);
+            convertStringToUint64(literalx, _HrawPoint + 12*nonzerol);
+            convertStringToUint64(literaly, _HrawPoint + 12*nonzerol + 4);
+            convertStringToUint64(literalz, _HrawPoint + 12*nonzerol + 8);
+            nonzerol++;
+        }
         if (i < 10) {
             printf("check default x, y, z #%d, values: %s %s %s\n", i, literalx.c_str(), literaly.c_str(), literalz.c_str());
         }
     }
     // CUDA main entry
-    _computesOnGPU(_HrawScalar, _HrawPoint, _HResult, l);
+    _computesOnGPU(_HrawScalar, _HrawPoint, _HResult, nonzerol);
     printf("check H result: %llx %llx %llx\n", _HResult[0], _HResult[4], _HResult[8]);
     // convert gpu raw data back to G1<ppt>
     libff::G1<ppT> evaluation_Ht_cuda;
