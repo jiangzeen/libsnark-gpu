@@ -416,8 +416,11 @@ void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_p
 
     free(scalar);
     free(dbc_store_host);
-    //free(h_p1);
-    //free(h_p2);
+    free(dbc_len_host);
+    free(t_p1);
+    free(t_p2);
+    free(h_p1);
+    free(h_p2);
     CUDA_SAFE_CALL(cudaFree(d_scalar));
     CUDA_SAFE_CALL(cudaFree(dbc_store_device));
     CUDA_SAFE_CALL(cudaFree(dbc_len_device));
