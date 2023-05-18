@@ -501,7 +501,7 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
         std::string literalz = (_Pstart + i)->coord[2].toString(16);
         libff::bigint<libff::bn128_Fr::num_limbs> a = _Hstart[i].as_bigint();
         //if (i < 100) a.print_hex();
-        std::copy(a.data, a.data + 4, _HrawScalar + 4*i)
+        std::copy(a.data, a.data + 4, _HrawScalar + 4*i);
         // if(a.data[0] > 1) printf("check outer data#%d: %x %x %x %x \n", i, a.data[0], a.data[1], a.data[2], a.data[3]);
         convertStringToUint64(literalx, _HrawPoint + 12*i);
         convertStringToUint64(literaly, _HrawPoint + 12*i + 4);
@@ -519,9 +519,9 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
     convertUint64ToString(_HResult, literalx);
     convertUint64ToString(_HResult + 4, literaly);
     convertUint64ToString(_HResult + 8, literalz);
-    evaluation_Ht_cuda.coord[0].set(literalx, 16);
-    evaluation_Ht_cuda.coord[1].set(literaly, 16);
-    evaluation_Ht_cuda.coord[2].set(literalz, 16);
+    evaluation_Ht_cuda.coord[0].set("0x"+literalx);
+    evaluation_Ht_cuda.coord[1].set("0x"+literaly);
+    evaluation_Ht_cuda.coord[2].set("0x"+literalz);
 
     libff::enter_block("Compute evaluation to H-query", false);
     libff::G1<ppT> evaluation_Ht = libff::multi_exp<libff::G1<ppT>,
