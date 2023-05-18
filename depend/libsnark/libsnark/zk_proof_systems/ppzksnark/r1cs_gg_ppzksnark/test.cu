@@ -154,7 +154,11 @@ __global__ void point_from_mont(Jpoint* from, Jpoint* to, int size) {
         // mont->normal
         dh_mybig_monmult_64((to + tx)->x, dc_ONE, (to + tx)->x);
         dh_mybig_monmult_64((to + tx)->y, dc_ONE, (to + tx)->y);
-        dh_mybig_monmult_64((to + tx)->z, dc_ONE, (to + tx)->z);
+        //dh_mybig_monmult_64((to + tx)->z, dc_ONE, (to + tx)->z);
+        (to + tx)->z[0] = dc_ONE[0];
+        (to + tx)->z[1] = dc_ONE[1];
+        (to + tx)->z[2] = dc_ONE[2];
+        (to + tx)->z[3] = dc_ONE[3];
     }
 }
 
@@ -202,10 +206,11 @@ __global__ void dbc_main(uint288* nums, int* dbc_store, int* dbc_value, Jpoint *
         __syncthreads();
     #endif
         int cnt = 0;
-        if (bx < size - 1) cnt = run_DBC_v2(in + dbc_id, out + dbc_id, dbc, len);
-        if ((out + dbc_id)->x[0] == 0) {
+        if ((in + dbc_id)->x[0] == 0) {
             printf("bx=%d, tx=%d reports bug:x is 0!!\n", bx, tx);
+            return;
         }
+        if (bx < size - 1) cnt = run_DBC_v2(in + dbc_id, out + dbc_id, dbc, len);
     }
     // if (tx == 0) {
     //     printf("bx=%d runs %d ops, check point value\n", bx, cnt);
@@ -276,7 +281,7 @@ __global__ void accumulate_blocks(Jpoint* in, int blocksize) { //in = out[]
 
 __global__ void trivial_sum(Jpoint* in, int num) {
     for (int i = 1; i < num; i++) {
-        printf("do algorithm: i=%d\n", i);
+        //printf("do algorithm: i=%d\n", i);
         dh_ellipticAdd_JJ(in, in + i, in);
         //__syncthreads__();
     }
@@ -284,7 +289,7 @@ __global__ void trivial_sum(Jpoint* in, int num) {
 
 __global__ void trivial_sum_blocks(Jpoint* in, int num, int blocksize) {
     for (int i = 1; i < num; i++) {
-        printf("do algorithm: i=%d\n", i);
+        //printf("do algorithm: i=%d\n", i);
         dh_ellipticAdd_JJ(in, in + i * blocksize, in);
         //__syncthreads__();
     }
@@ -320,7 +325,7 @@ void convertUint64ToString(UINT64* in, string& s) {
     for (int bit = 252; bit >= 0; bit -= 4) {
         int idx = bit / 64;
         int mask = bit % 64;
-        s += digits[(in[idx] & (0x0f << mask)) >> mask];
+        s += digits[(in[idx] & (0x0fll << mask)) >> mask];
     }
     printf("convert to String: %s\n", s.c_str());
 }
@@ -399,9 +404,12 @@ void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_p
     h_p2 = (Jpoint*)malloc(csize*sizeof(Jpoint));
     for (int i = 0; i < csize; i++) {
         for (int j = 0; j < 4; j++) {
-            h_p1->x[j] = raw_points_input[12*i + j];
-            h_p1->y[j] = raw_points_input[12*i + 4 + j];
-            h_p1->z[j] = raw_points_input[12*i + 8 + j];
+            h_p1[i].x[j] = raw_points_input[12*i + j];
+            h_p1[i].y[j] = raw_points_input[12*i + 4 + j];
+            h_p1[i].z[j] = raw_points_input[12*i + 8 + j];
+        }
+        if (h_p1[i].x[0] == 0) {
+            printf("Error: h_p1 input has zero value\n");
         }
     }
     CUDA_SAFE_CALL(cudaMalloc((void**)&d_p1,csize*sizeof(Jpoint)));
@@ -465,30 +473,36 @@ void _computesOnGPU(UINT64* scalars_i64, UINT64* raw_points_input, UINT64* raw_p
         accumulate_sum_per_block<<<1,nontrivial_lim>>>(d_p2);
         for (int i = nontrivial_lim * 2; i < N_BLOCK; i++) {
             int offset = i * N_THREAD_PER_BLOCK;
-            trivial_sum<<<1, 1>>>(d_p2 + offset, min(csize - offset, N_THREAD_PERBLOCK)); // accumulate how many blocks.
+            trivial_sum<<<1, 1>>>(d_p2 + offset, min(csize - offset, N_THREAD_PER_BLOCK)); // accumulate how many blocks.
         }
     }
-    trivial_sum_blocks<<<1, 1>>>(d_p2, N_THREAD_PER_BLOCK);
+    trivial_sum_blocks<<<1, 1>>>(d_p2, N_BLOCK, N_THREAD_PER_BLOCK);
     cudaDeviceSynchronize();
     CUDA_CHECK_ERROR();
 
 
-    point_from_monjj<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p2, csize);
+    point_from_mont<<<N_BLOCK,N_THREAD_PER_BLOCK>>>(d_p2, d_p1, csize);
     cudaDeviceSynchronize();
 
     CUDA_CHECK_ERROR();
 
 #ifdef DEBUG
     printf("dbc dp2:\n");
-    CUDA_SAFE_CALL(cudaMemcpy(t_p1,d_p2,100*sizeof(Jpoint),cudaMemcpyDeviceToHost));
-    for (int i = 0; i < 10; i++) {
-        printf("0x%llx 0x%llx 0x%llx 0x%llx\n", t_p1[i].x[0], t_p1[i].x[1], t_p1[i].x[2], t_p1[i].x[3]);
+    CUDA_SAFE_CALL(cudaMemcpy(t_p1,d_p1,100*sizeof(Jpoint),cudaMemcpyDeviceToHost));
+    for (int i = 0; i < 3; i++) {
+        printf("x:0x%llx 0x%llx 0x%llx 0x%llx\n", t_p1[i].x[0], t_p1[i].x[1], t_p1[i].x[2], t_p1[i].x[3]);
+        printf("y:0x%llx 0x%llx 0x%llx 0x%llx\n", t_p1[i].y[0], t_p1[i].y[1], t_p1[i].y[2], t_p1[i].y[3]);
+        printf("z:0x%llx 0x%llx 0x%llx 0x%llx\n", t_p1[i].z[0], t_p1[i].z[1], t_p1[i].z[2], t_p1[i].z[3]);
     }
 #endif
 
     time_use = _get_nsec_time() - s1;//微秒
     printf("main function time usage is %ld us\n",time_use);
 
+    // data fills back
+    std::copy(t_p1[0].x, t_p1[0].x + 4, raw_points_output);
+    std::copy(t_p1[0].y, t_p1[0].y + 4, raw_points_output + 4);
+    std::copy(t_p1[0].z, t_p1[0].z + 4, raw_points_output + 8);
     // used in accuracy test.
     // printf("Check DBC ans: \n");
     // for (int i = 0; i < 8; i++) {

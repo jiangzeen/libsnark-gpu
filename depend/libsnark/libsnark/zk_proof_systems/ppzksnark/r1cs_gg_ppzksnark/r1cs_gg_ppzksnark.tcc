@@ -502,13 +502,15 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
         std::string literalz = (_Pstart + i)->coord[2].toString(16);
         libff::bigint<libff::bn128_Fr::num_limbs> a = _Hstart[i].as_bigint();
         //if (i < 100) a.print_hex();
-        if (!a.iszero) { // skip all zero cnt
+        if (!a.is_zero()) { // skip all zero cnt
             std::copy(a.data, a.data + 4, _HrawScalar + 4*nonzerol);
             // if(a.data[0] > 1) printf("check outer data#%d: %x %x %x %x \n", i, a.data[0], a.data[1], a.data[2], a.data[3]);
             convertStringToUint64(literalx, _HrawPoint + 12*nonzerol);
             convertStringToUint64(literaly, _HrawPoint + 12*nonzerol + 4);
             convertStringToUint64(literalz, _HrawPoint + 12*nonzerol + 8);
+            if (_HrawPoint[12*nonzerol] == 0) printf("nonzerol #%d errors: x is zero\n", nonzerol);
             nonzerol++;
+            
         }
         if (i < 10) {
             printf("check default x, y, z #%d, values: %s %s %s\n", i, literalx.c_str(), literaly.c_str(), literalz.c_str());
@@ -538,6 +540,10 @@ r1cs_gg_ppzksnark_proof<ppT> r1cs_gg_ppzksnark_prover(const r1cs_gg_ppzksnark_pr
         qap_wit.coefficients_for_H.begin() + (qap_wit.degree() - 1),
         chunks);
     libff::leave_block("Compute evaluation to H-query", false);
+    // our check
+    printf("Hquery answer check:\n");
+    evaluation_Ht.to_affine_coordinates();
+    printf("%s %s %s\n", evaluation_Ht.coord[0].toString(16).c_str(), evaluation_Ht.coord[1].toString(16).c_str(), evaluation_Ht.coord[2].toString(16).c_str());
 
     libff::enter_block("Compute evaluation to L-query", false);
     libff::G1<ppT> evaluation_Lt = libff::multi_exp_with_mixed_addition<libff::G1<ppT>,
